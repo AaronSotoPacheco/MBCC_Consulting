@@ -6,6 +6,22 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
+## MBCC Control de Calidad API
+
+El frontend QC usa los endpoints de este backend y conserva su esquema actual: las órdenes se leen de `sort_orders`, las inspecciones se guardan en `serial_records` y sus defectos en `serial_defect_logs`. El login valida `employee_number` y `password_hash` y emite tokens de Sanctum; no ejecutes la migración del backend adjunto, porque corresponde a otro esquema.
+
+```bash
+php artisan migrate
+php artisan serve
+```
+
+La migración QC agrega únicamente el campo nullable `shift` a `serial_records`. Las rutas de `ordenes`, `defectos`, `inspecciones` y `reportes` requieren `Authorization: Bearer <token>`; `POST /api/login` es público y `POST /api/logout` revoca el token actual. En una base nueva, `php artisan db:seed` crea datos de desarrollo una sola vez.
+
+Las pruebas de integración se ejecutan con:
+
+```bash
+php artisan test
+```
 
 ## About Laravel
 

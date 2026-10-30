@@ -1,3 +1,21 @@
+# MBCC Control de Calidad
+
+## Desarrollo local
+
+1. Inicia Laravel desde `mbcc-backend` con `php artisan serve`.
+2. Inicia Vite desde `mbcc-frontend` con `npm run dev`.
+3. Abre `http://127.0.0.1:5173`.
+
+Vite redirige `/api` a `http://127.0.0.1:8000`; `VITE_API_URL` permite cambiar esa URL. Los endpoints QC usan tokens Bearer de Sanctum. La app solo usa respuestas de ejemplo cuando `VITE_USE_MOCK=true`; déjalo sin definir para trabajar con Laravel.
+
+En una base de desarrollo recién creada, el seeder define `EMP-0001` / `password`. No uses esas credenciales en producción. Las órdenes y los defectos se leen de los catálogos existentes en Laravel.
+
+## Validación
+
+```bash
+npm run lint
+npm run build
+```
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

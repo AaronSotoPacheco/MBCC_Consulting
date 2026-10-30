@@ -1,6 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\ClientController;
+use App\Http\Controllers\Api\ControlCalidadAuthController;
+use App\Http\Controllers\Api\ControlCalidadInspectionController;
+use App\Http\Controllers\Api\ControlCalidadOrderController;
+use App\Http\Controllers\Api\ControlCalidadReportController;
 use App\Http\Controllers\Api\DefectCatalogController;
 use App\Http\Controllers\Api\PartNumberController;
 use App\Http\Controllers\Api\ReworkLogController;
@@ -29,3 +33,15 @@ Route::apiResources([
     'serial-defect-logs' => SerialDefectLogController::class,
     'rework-logs' => ReworkLogController::class,
 ]);
+
+Route::post('/login', [ControlCalidadAuthController::class, 'login']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [ControlCalidadAuthController::class, 'logout']);
+    Route::get('/ordenes', [ControlCalidadOrderController::class, 'index']);
+    Route::get('/defectos', [ControlCalidadInspectionController::class, 'defectos']);
+    Route::get('/ordenes/{orden}/inspecciones', [ControlCalidadInspectionController::class, 'index']);
+    Route::post('/ordenes/{orden}/inspecciones', [ControlCalidadInspectionController::class, 'store']);
+    Route::get('/reportes/resumen', [ControlCalidadReportController::class, 'resumen']);
+    Route::get('/reportes/datos.csv', [ControlCalidadReportController::class, 'csv']);
+});
