@@ -32,17 +32,44 @@ class ControlCalidadApiTest extends TestCase
             ->assertJsonStructure(['token', 'user' => ['nombre', 'rol', 'turno']]);
     }
 
+    public function test_demo_seed_creates_the_documented_login_accounts(): void
+    {
+        $this->artisan('db:seed', ['--class' => 'DatabaseSeeder'])->assertSuccessful();
+
+        $this->assertDatabaseHas('users', ['employee_number' => '9001', 'full_name' => 'Administrador MBCC']);
+        $this->assertDatabaseHas('users', ['employee_number' => '2001', 'full_name' => 'Andrea López']);
+        $this->assertDatabaseHas('users', ['employee_number' => '1001', 'full_name' => 'Juan Pérez García']);
+
+        $this->assertTrue(Hash::check('demo1234', User::where('employee_number', '9001')->value('password_hash')));
+        $this->assertTrue(Hash::check('demo1234', User::where('employee_number', '2001')->value('password_hash')));
+        $this->assertTrue(Hash::check('demo1234', User::where('employee_number', '1001')->value('password_hash')));
+    }
+
     public function test_orders_are_mapped_from_existing_production_orders(): void
     {
         $user = $this->createUser();
         $order = $this->createOrder();
+        $order->serialRecords()->create([
+            'serial_number' => 'SN-9001-001',
+            'status' => 'PASSED',
+            'inspected_by' => $user->id,
+        ]);
+        $order->serialRecords()->create([
+            'serial_number' => 'SN-9001-002',
+            'status' => 'FAILED',
+            'inspected_by' => $user->id,
+        ]);
         Sanctum::actingAs($user);
 
         $this->getJson('/api/ordenes')->assertOk()
             ->assertJsonPath('0.id', $order->id)
             ->assertJsonPath('0.cliente', 'MBCC Client')
             ->assertJsonPath('0.so', 'SO-9001')
-            ->assertJsonPath('0.estado', 'Abierta');
+            ->assertJsonPath('0.estado', 'OPEN')
+            ->assertJsonPath('0.inspeccionadas', 2)
+            ->assertJsonPath('0.rechazadas', 1)
+            ->assertJsonPath('0.wi.codigo', 'WI-9001')
+            ->assertJsonPath('0.wi.revision', 'A');
     }
 
     public function test_inspection_records_a_serial_defect_and_prevents_duplicates(): void
@@ -97,6 +124,33 @@ class ControlCalidadApiTest extends TestCase
             ->assertJsonPath('kpis.eficiencia.valor', 50)
             ->assertJsonPath('pareto.0.defecto', 'Tornillo faltante')
             ->assertJsonPath('pareto.0.cantidad', 1);
+    }
+
+    public function test_report_summary_includes_active_orders_and_rework_records(): void
+    {
+        $user = $this->createUser();
+        $order = $this->createOrder();
+        Sanctum::actingAs($user);
+
+        $serial = $order->serialRecords()->create([
+            'serial_number' => 'SN-9001-001',
+            'status' => 'REWORK_REQUIRED',
+            'inspected_by' => $user->id,
+            'shift' => 2,
+        ]);
+        $serial->reworkLogs()->create([
+            'rework_action' => 'Reapriete de tornillos y limpieza',
+            'reworked_by' => $user->id,
+            'reinspected_by' => $user->id,
+            'final_status' => 'PASSED',
+            'completed_at' => now(),
+        ]);
+
+        $this->getJson('/api/reportes/resumen?desde='.today()->toDateString().'&hasta='.today()->toDateString())
+            ->assertOk()
+            ->assertJsonPath('ordenesActivas.0.orden', 'SO-9001')
+            ->assertJsonPath('retrabajos.0.serie', 'SN-9001-001')
+            ->assertJsonPath('retrabajos.0.accion', 'Reapriete de tornillos y limpieza');
     }
 
     public function test_csv_report_is_an_authenticated_download(): void

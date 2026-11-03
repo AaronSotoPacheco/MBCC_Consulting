@@ -11,7 +11,12 @@ class ControlCalidadOrderController extends Controller
     {
         return SortOrder::query()
             ->with(['partNumber.client', 'workInstruction'])
+            ->withCount([
+                'serialRecords as inspeccionadas',
+                'serialRecords as rechazadas' => fn ($query) => $query->whereIn('status', ['FAILED', 'REWORK_REQUIRED', 'SCRAP']),
+            ])
             ->whereIn('status', ['OPEN', 'PAUSED'])
+            ->orderBy('status')
             ->orderBy('order_number')
             ->get()
             ->map(fn (SortOrder $order) => [
@@ -20,13 +25,16 @@ class ControlCalidadOrderController extends Controller
                 'so' => $order->order_number,
                 'parte' => $order->partNumber?->part_number ?? '',
                 'descripcion' => $order->partNumber?->description ?: $order->workInstruction?->title ?? '',
-                'meta' => $order->target_quantity,
-                'estado' => $order->status === 'OPEN' ? 'Abierta' : 'Pausada',
-                'instruccion' => $order->workInstruction ? [
-                    'codigo' => $order->workInstruction->code.' · Rev. '.$order->workInstruction->revision,
+                'meta' => (int) $order->target_quantity,
+                'inspeccionadas' => (int) $order->inspeccionadas,
+                'rechazadas' => (int) $order->rechazadas,
+                'estado' => $order->status,
+                'turno' => $order->shift_hours,
+                'wi' => $order->workInstruction ? [
+                    'codigo' => $order->workInstruction->code,
+                    'revision' => $order->workInstruction->revision,
                     'titulo' => $order->workInstruction->title,
                     'archivo' => $order->workInstruction->file_path,
-                    'puntos' => [],
                 ] : null,
             ]);
     }

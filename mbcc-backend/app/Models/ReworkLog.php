@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ReworkLog extends Model
 {
     const CREATED_AT = null;
+    const UPDATED_AT = null;
 
     protected $fillable = ['serial_record_id', 'rework_action', 'reworked_by', 'reinspected_by', 'final_status', 'completed_at'];
 

@@ -24,7 +24,12 @@ export default function Station({ ordenId, orden }) {
   const ng = escaneos.length - ok
   const total = escaneos.length
   const pct = (count) => (total ? ((count / total) * 100).toFixed(1) : '0.0')
-  const instruccion = orden?.instruccion ?? WORK_INSTRUCTION
+  const instruccion = orden?.wi ? {
+    codigo: `${orden.wi.codigo} · Rev. ${orden.wi.revision}`,
+    titulo: orden.wi.titulo,
+    archivo: orden.wi.archivo,
+    puntos: orden.wi.puntos ?? [],
+  } : WORK_INSTRUCTION
 
   const registrar = useCallback(async (resultado, defectoElegido) => {
     if (!serie.trim()) { setAviso('Escanea o escribe un número de serie primero.'); inputRef.current?.focus(); return }

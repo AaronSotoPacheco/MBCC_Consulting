@@ -1,4 +1,5 @@
 import Logo from './Logo.jsx'
+import { nivelDe, puede } from '../access.js'
 import { IconHome, IconChart, IconClock, IconGear, IconLogout, IconUser } from './Icons.jsx'
 
 const NAV = [
@@ -9,7 +10,9 @@ const NAV = [
 ]
 
 export default function Shell({ user, route, navigate, onLogout, crumbs, children }) {
-  const activeTo = NAV.find((item) => route.startsWith(item.to))?.to || '/ordenes'
+  const nivel = nivelDe(user)
+  const visibleNav = NAV.filter(({ to }) => puede(nivel, to))
+  const activeTo = visibleNav.find((item) => route.startsWith(item.to))?.to || visibleNav[0]?.to || '/ordenes'
 
   return (
     <div className="shell">
@@ -38,7 +41,7 @@ export default function Shell({ user, route, navigate, onLogout, crumbs, childre
 
       <div className="shell-body">
         <aside className="sidebar">
-          {NAV.map(({ to, label, Icon }) => (
+          {visibleNav.map(({ to, label, Icon }) => (
             <a key={to} href={`#${to}`} className={activeTo === to ? 'active' : ''} onClick={() => navigate(to)}>
               <Icon /> {label}
             </a>
@@ -48,7 +51,7 @@ export default function Shell({ user, route, navigate, onLogout, crumbs, childre
       </div>
 
       <nav className="tabbar" aria-label="Navegación principal">
-        {NAV.map(({ to, short, Icon }) => (
+        {visibleNav.map(({ to, short, Icon }) => (
           <a key={to} href={`#${to}`} className={activeTo === to ? 'active' : ''}>
             <Icon width={20} height={20} /><span>{short}</span>
           </a>

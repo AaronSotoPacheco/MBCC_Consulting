@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ReworkLog;
 use App\Models\SerialRecord;
+use App\Models\SortOrder;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -48,6 +50,60 @@ class ControlCalidadReportController extends Controller
             ->orderByDesc('cantidad')
             ->get();
 
+        $ordenesActivas = SortOrder::query()
+            ->with(['partNumber.client', 'workInstruction'])
+            ->withCount([
+                'serialRecords as inspeccionadas',
+                'serialRecords as rechazadas' => fn ($serialQuery) => $serialQuery->whereIn('status', ['FAILED', 'REWORK_REQUIRED', 'SCRAP']),
+            ])
+            ->whereIn('status', ['OPEN', 'PAUSED'])
+            ->orderBy('status')
+            ->orderBy('order_number')
+            ->get()
+            ->map(fn (SortOrder $order) => [
+                'id' => $order->id,
+                'orden' => $order->order_number,
+                'cliente' => $order->partNumber?->client?->name ?? '—',
+                'parte' => $order->partNumber?->part_number ?? '—',
+                'descripcion' => $order->partNumber?->description ?: $order->workInstruction?->title ?? '—',
+                'estado' => $order->status,
+                'meta' => (int) $order->target_quantity,
+                'inspeccionadas' => (int) $order->inspeccionadas,
+                'rechazadas' => (int) $order->rechazadas,
+            ]);
+
+        $retrabajos = ReworkLog::query()
+            ->join('serial_records', 'serial_records.id', '=', 'rework_logs.serial_record_id')
+            ->join('sort_orders', 'sort_orders.id', '=', 'serial_records.sort_order_id')
+            ->leftJoin('part_numbers', 'part_numbers.id', '=', 'sort_orders.part_number_id')
+            ->leftJoin('clients', 'clients.id', '=', 'part_numbers.client_id')
+            ->select([
+                'rework_logs.id',
+                'sort_orders.order_number as orden',
+                'clients.name as cliente',
+                'part_numbers.part_number as parte',
+                'rework_logs.rework_action as accion',
+                'rework_logs.final_status as resultado',
+                'serial_records.serial_number as serie',
+                'rework_logs.completed_at as fecha',
+            ])
+            ->whereDate('rework_logs.completed_at', '>=', $request->input('desde') ?? now()->startOfMonth()->toDateString())
+            ->whereDate('rework_logs.completed_at', '<=', $request->input('hasta') ?? now()->toDateString())
+            ->when($request->input('turno') && $request->input('turno') !== 'todos', fn ($query) => $query->where('serial_records.shift', $request->input('turno')))
+            ->when($request->input('orden') && $request->input('orden') !== 'todas', fn ($query) => $query->where('sort_orders.order_number', $request->input('orden')))
+            ->orderByDesc('rework_logs.completed_at')
+            ->get()
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'orden' => $item->orden,
+                'cliente' => $item->cliente ?? '—',
+                'parte' => $item->parte ?? '—',
+                'serie' => $item->serie,
+                'accion' => $item->accion,
+                'resultado' => $item->resultado,
+                'fecha' => $item->fecha ? \Illuminate\Support\Carbon::parse($item->fecha)->toDateTimeString() : null,
+            ]);
+
         return [
             'kpis' => [
                 'eficiencia' => ['valor' => $total ? round($passed / $total * 100, 1) : 0, 'delta' => 'del periodo seleccionado'],
@@ -55,6 +111,8 @@ class ControlCalidadReportController extends Controller
                 'scrap' => ['valor' => $scrap, 'detalle' => $total ? round($scrap / $total * 100, 1).'% del total' : '0% del total'],
             ],
             'pareto' => $pareto->map(fn ($item) => ['defecto' => $item->defecto, 'cantidad' => (int) $item->cantidad]),
+            'ordenesActivas' => $ordenesActivas,
+            'retrabajos' => $retrabajos,
         ];
     }
 

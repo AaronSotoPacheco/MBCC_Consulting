@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, auth } from './api.js'
+import { ETIQUETA_NIVEL, nivelDe, puede } from './access.js'
 import Shell from './components/Shell.jsx'
 import Login from './screens/Login.jsx'
 import Orders from './screens/Orders.jsx'
@@ -15,6 +16,19 @@ function useHashRoute() {
     return () => window.removeEventListener('hashchange', on)
   }, [])
   return [route, (to) => { location.hash = '#' + to }]
+}
+
+function SinAcceso({ nivel, navigate }) {
+  return (
+    <div className="no-access" role="alert">
+      <h1 className="page-title">Sin acceso</h1>
+      <p className="muted">
+        Tu nivel de uso ({ETIQUETA_NIVEL[nivel]}) no tiene permiso para ver esta sección.
+        Si la necesitas, solicita que revisen tu rol.
+      </p>
+      <button className="btn btn-primary" onClick={() => navigate('/ordenes')}>Volver a Órdenes</button>
+    </div>
+  )
 }
 
 export default function QualityApp() {
@@ -38,7 +52,12 @@ export default function QualityApp() {
     return <Login onLogin={login} />
   }
 
+  const nivel = nivelDe(user)
   const shellProps = { user, route, navigate, onLogout: logout }
+
+  if (!puede(nivel, route)) {
+    return <Shell {...shellProps}><SinAcceso nivel={nivel} navigate={navigate} /></Shell>
+  }
 
   if (route.startsWith('/estacion/')) {
     const id = route.split('/')[2]

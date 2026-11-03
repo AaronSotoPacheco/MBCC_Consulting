@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { IconCalendar, IconChevron, IconSearch, IconGauge, IconTool, IconTrash, IconTable } from '../components/Icons.jsx'
 
-const DEFAULT_FILTERS = { desde: '2026-10-01', hasta: '2026-10-31', turno: 'todos', orden: 'todas' }
+const hoy = new Date()
+const DEFAULT_FILTERS = {
+  desde: new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10),
+  hasta: hoy.toISOString().slice(0, 10),
+  turno: 'todos',
+  orden: 'todas',
+}
 
 export default function Reports() {
   const [desde, setDesde] = useState(DEFAULT_FILTERS.desde)
@@ -35,8 +41,10 @@ export default function Reports() {
   }
 
   const k = data?.kpis
-  const max = data ? Math.max(...data.pareto.map((item) => item.cantidad), 1) : 1
+  const max = data ? Math.max(...(data.pareto || []).map((item) => item.cantidad), 1) : 1
   const ticks = [0, 20, 40, 60, 80]
+  const ordenesActivas = data?.ordenesActivas || []
+  const retrabajos = data?.retrabajos || []
 
   return (
     <>
@@ -60,9 +68,79 @@ export default function Reports() {
         <section className="card pareto"><h2>Pareto de Defectos</h2>{data && <div className="chart" role="img" aria-label="Gráfica de Pareto de defectos">
           <div className="y-axis">{[...ticks].reverse().map((tick) => <span key={tick}>{tick}</span>)}</div>
           <div className="plot">{ticks.map((tick) => <i key={tick} className="gridline" style={{ bottom: `${(tick / 80) * 100}%` }} />)}</div>
-          <div className="plot"><div className="bars">{data.pareto.map((item) => <div className="bar-col" key={item.defecto}><span className="bar-val">{item.cantidad}</span><div className="bar" style={{ height: `${(item.cantidad / Math.max(80, max)) * 100}%` }} /><span className="bar-label">{item.defecto}</span></div>)}</div></div>
+          <div className="plot"><div className="bars">{(data.pareto || []).map((item) => <div className="bar-col" key={item.defecto}><span className="bar-val">{item.cantidad}</span><div className="bar" style={{ height: `${(item.cantidad / Math.max(80, max)) * 100}%` }} /><span className="bar-label">{item.defecto}</span></div>)}</div></div>
         </div>}</section>
         <section className="card export"><h2>Exportar Reporte</h2><p className="muted small">Descarga los resultados del periodo seleccionado.</p><button className="btn btn-outline btn-block" onClick={exportar}><IconTable width={16} height={16} /> Exportar Datos a CSV</button></section>
+      </div>
+
+      <div className="report-panels">
+        <section className="card report-panel">
+          <h2>Órdenes activas</h2>
+          {ordenesActivas.length === 0 ? (
+            <p className="muted">No hay órdenes activas en este momento.</p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Orden</th>
+                    <th>Cliente</th>
+                    <th>Parte</th>
+                    <th>Estado</th>
+                    <th>Inspeccionadas</th>
+                    <th>NG</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ordenesActivas.map((order) => (
+                    <tr key={order.id}>
+                      <td>{order.orden}</td>
+                      <td>{order.cliente}</td>
+                      <td>{order.parte}</td>
+                      <td><span className={`pill ${order.estado === 'OPEN' ? 'pill-ok' : 'pill-warn'}`}>{order.estado === 'OPEN' ? 'Abierta' : 'Pausada'}</span></td>
+                      <td>{order.inspeccionadas}</td>
+                      <td>{order.rechazadas}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="card report-panel">
+          <h2>Retrabajos</h2>
+          {retrabajos.length === 0 ? (
+            <p className="muted">No hay retrabajos registrados en el periodo.</p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Orden</th>
+                    <th>Serie</th>
+                    <th>Parte</th>
+                    <th>Acción</th>
+                    <th>Resultado</th>
+                    <th>Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {retrabajos.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.orden}</td>
+                      <td>{item.serie}</td>
+                      <td>{item.parte}</td>
+                      <td>{item.accion}</td>
+                      <td>{item.resultado}</td>
+                      <td>{item.fecha ? new Date(item.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
     </>
   )
