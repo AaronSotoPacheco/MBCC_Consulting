@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api } from '../api.js'
+import { api, auth } from '../api.js'
+import { nivelDe } from '../access.js'
 import { WORK_INSTRUCTION } from '../data.js'
 import { IconDoc, IconScan, IconCheck, IconX, IconChevron, IconImage } from '../components/Icons.jsx'
 
 export default function Station({ ordenId, orden }) {
+  const verInspector = ['admin', 'supervisor'].includes(nivelDe(auth.user))
   const [serie, setSerie] = useState('')
   const [escaneos, setEscaneos] = useState([])
   const [defectos, setDefectos] = useState([])
@@ -36,7 +38,7 @@ export default function Station({ ordenId, orden }) {
     if (resultado === 'NG' && !defectoElegido) { setPendiente('NG'); setMostrarDefectos(true); setAviso('Selecciona el defecto para registrar el rechazo.'); return }
     try {
       const reg = await api.registrarInspeccion(ordenId, { serie: serie.trim(), resultado, defecto: defectoElegido || null })
-      setEscaneos((previous) => [{ serie: serie.trim(), resultado, hora: reg.hora }, ...previous])
+      setEscaneos((previous) => [{ serie: serie.trim(), resultado, hora: reg.hora, inspector: reg.inspector }, ...previous])
       setSerie('')
       setDefecto(null)
       setPendiente(null)
@@ -103,8 +105,8 @@ export default function Station({ ordenId, orden }) {
         </div>
         <div className="last">
           <div className="last-head">Últimos 5 Escaneos</div>
-          <div className="table-wrap"><table><thead><tr><th>#</th><th>Número de Serie</th><th>Resultado</th><th>Hora</th></tr></thead>
-            <tbody>{escaneos.slice(0, 5).map((scan, index) => <tr key={scan.serie + index}><td>{index + 1}</td><td>{scan.serie}</td><td><span className={`badge ${scan.resultado === 'OK' ? 'badge-ok' : 'badge-ng'}`}>{scan.resultado}</span></td><td>{scan.hora}</td></tr>)}</tbody>
+          <div className="table-wrap"><table><thead><tr><th>#</th><th>Número de Serie</th><th>Resultado</th>{verInspector && <th>Inspector</th>}<th>Hora</th></tr></thead>
+            <tbody>{escaneos.slice(0, 5).map((scan, index) => <tr key={scan.serie + index}><td>{index + 1}</td><td>{scan.serie}</td><td><span className={`badge ${scan.resultado === 'OK' ? 'badge-ok' : 'badge-ng'}`}>{scan.resultado}</span></td>{verInspector && <td>{scan.inspector || '—'}</td>}<td>{scan.hora}</td></tr>)}</tbody>
           </table></div>
         </div>
       </section>

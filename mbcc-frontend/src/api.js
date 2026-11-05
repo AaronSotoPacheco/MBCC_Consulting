@@ -1,4 +1,5 @@
 import { DEFECTOS, ESCANEOS_INICIALES, KPIS, ORDERS, PARETO } from './data.js'
+import { nivelDe } from './access.js'
 
 const BASE = import.meta.env.VITE_API_URL || '/api'
 const FORCE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
@@ -76,14 +77,17 @@ export const api = {
   ordenes: () => request('/ordenes', { mock: async () => ORDERS }),
   defectos: () => request('/defectos', { mock: async () => DEFECTOS.map((description) => ({ description })) }),
   escaneos: (orderId) => {
-    const shift = auth.user?.turno
+    const nivel = nivelDe(auth.user)
+    const shift = ['admin', 'supervisor'].includes(nivel) ? null : auth.user?.turno
     const suffix = shift ? `?turno=${encodeURIComponent(shift)}` : ''
-    return request(`/ordenes/${orderId}/inspecciones${suffix}`, { mock: async () => ESCANEOS_INICIALES })
+    return request(`/ordenes/${orderId}/inspecciones${suffix}`, {
+      mock: async () => ESCANEOS_INICIALES.map((scan) => ({ ...scan, inspector: auth.user?.nombre })),
+    })
   },
   registrarInspeccion: (orderId, data) => request(`/ordenes/${orderId}/inspecciones`, {
     method: 'POST',
     body: { ...data, turno: auth.user?.turno || null },
-    mock: async () => ({ ...data, hora: new Date().toTimeString().slice(0, 5) }),
+    mock: async () => ({ ...data, hora: new Date().toTimeString().slice(0, 5), inspector: auth.user?.nombre }),
   }),
   reporte: (params) => request(`/reportes/resumen?${new URLSearchParams(params)}`, {
     mock: async () => ({ kpis: KPIS, pareto: PARETO }),

@@ -25,21 +25,30 @@ class ControlCalidadInspectionController extends Controller
         $data = $request->validate([
             'turno' => ['nullable', 'integer', 'in:1,2,3'],
         ]);
+        $puedeVerInspector = in_array($request->user()->role?->name, ['admin', 'supervisor'], true);
 
         $query = $orden->serialRecords()
-            ->with('defectLogs.defect')
+            ->with(['defectLogs.defect', 'inspector:id,full_name'])
             ->whereDate('created_at', today());
 
         if (isset($data['turno'])) {
             $query->where('shift', $data['turno']);
         }
 
-        return $query->latest()->get()->map(fn (SerialRecord $record) => [
-            'serie' => $record->serial_number,
-            'resultado' => $record->status === 'PASSED' ? 'OK' : 'NG',
-            'defecto' => $record->defectLogs->first()?->defect?->description,
-            'hora' => $record->created_at->format('H:i'),
-        ]);
+        return $query->latest()->get()->map(function (SerialRecord $record) use ($puedeVerInspector) {
+            $inspection = [
+                'serie' => $record->serial_number,
+                'resultado' => $record->status === 'PASSED' ? 'OK' : 'NG',
+                'defecto' => $record->defectLogs->first()?->defect?->description,
+                'hora' => $record->created_at->format('H:i'),
+            ];
+
+            if ($puedeVerInspector) {
+                $inspection['inspector'] = $record->inspector?->full_name;
+            }
+
+            return $inspection;
+        });
     }
 
     public function store(Request $request, SortOrder $orden)
@@ -93,6 +102,11 @@ class ControlCalidadInspectionController extends Controller
             'resultado' => $data['resultado'],
             'defecto' => $defect?->description,
             'hora' => $record->created_at->format('H:i'),
+            ...(
+                in_array($request->user()->role?->name, ['admin', 'supervisor'], true)
+                    ? ['inspector' => $request->user()->full_name]
+                    : []
+            ),
         ], 201);
     }
 }

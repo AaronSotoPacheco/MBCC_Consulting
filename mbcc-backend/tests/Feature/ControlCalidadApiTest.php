@@ -105,6 +105,50 @@ class ControlCalidadApiTest extends TestCase
         ])->assertUnprocessable();
     }
 
+    public function test_supervisor_can_see_inspector_name_in_inspection_history_and_report(): void
+    {
+        $inspector = $this->createUser();
+        $supervisorRole = Role::create(['name' => 'supervisor', 'description' => 'Supervisor']);
+        $supervisor = User::create([
+            'role_id' => $supervisorRole->id,
+            'employee_number' => 'EMP-SUP',
+            'full_name' => 'Supervisora de Calidad',
+            'password_hash' => Hash::make('secret-pass'),
+            'is_active' => true,
+        ]);
+        $order = $this->createOrder();
+        $order->serialRecords()->create([
+            'serial_number' => 'SN-9001-001',
+            'status' => 'PASSED',
+            'inspected_by' => $inspector->id,
+        ]);
+        Sanctum::actingAs($supervisor);
+
+        $this->getJson("/api/ordenes/{$order->id}/inspecciones")
+            ->assertOk()
+            ->assertJsonPath('0.inspector', 'Inspectora de Calidad');
+
+        $this->getJson('/api/reportes/resumen?desde='.today()->toDateString().'&hasta='.today()->toDateString())
+            ->assertOk()
+            ->assertJsonPath('inspecciones.0.inspector', 'Inspectora de Calidad');
+    }
+
+    public function test_inspector_does_not_receive_inspector_names_in_report(): void
+    {
+        $user = $this->createUser();
+        $order = $this->createOrder();
+        $order->serialRecords()->create([
+            'serial_number' => 'SN-9001-001',
+            'status' => 'PASSED',
+            'inspected_by' => $user->id,
+        ]);
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/reportes/resumen?desde='.today()->toDateString().'&hasta='.today()->toDateString())
+            ->assertOk()
+            ->assertJsonMissingPath('inspecciones.0.inspector');
+    }
+
     public function test_report_summary_uses_records_and_defect_logs(): void
     {
         $user = $this->createUser();
@@ -162,6 +206,31 @@ class ControlCalidadApiTest extends TestCase
             ->assertOk()
             ->assertHeader('content-type', 'text/csv; charset=UTF-8')
             ->assertHeader('content-disposition', 'attachment; filename=inspecciones.csv');
+    }
+
+    public function test_supervisor_csv_includes_inspector_column_and_name(): void
+    {
+        $inspector = $this->createUser();
+        $supervisorRole = Role::create(['name' => 'supervisor', 'description' => 'Supervisor']);
+        $supervisor = User::create([
+            'role_id' => $supervisorRole->id,
+            'employee_number' => 'EMP-SUP',
+            'full_name' => 'Supervisora de Calidad',
+            'password_hash' => Hash::make('secret-pass'),
+            'is_active' => true,
+        ]);
+        $this->createOrder()->serialRecords()->create([
+            'serial_number' => 'SN-9001-001',
+            'status' => 'PASSED',
+            'inspected_by' => $inspector->id,
+        ]);
+        Sanctum::actingAs($supervisor);
+
+        $response = $this->get('/api/reportes/datos.csv?desde='.today()->toDateString().'&hasta='.today()->toDateString())
+            ->assertOk();
+
+        $this->assertStringContainsString('Inspector', $response->streamedContent());
+        $this->assertStringContainsString('Inspectora de Calidad', $response->streamedContent());
     }
 
     public function test_logout_revokes_the_current_sanctum_token(): void

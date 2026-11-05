@@ -37,10 +37,33 @@ class ControlCalidadReportController extends Controller
     public function resumen(Request $request)
     {
         $query = $this->consulta($request);
+        $puedeVerInspector = in_array($request->user()->role?->name, ['admin', 'supervisor'], true);
         $total = (clone $query)->count();
         $passed = (clone $query)->where('status', 'PASSED')->count();
         $reworks = (clone $query)->where('status', 'REWORK_REQUIRED')->count();
         $scrap = (clone $query)->where('status', 'SCRAP')->count();
+
+        $inspecciones = (clone $query)
+            ->with(['sortOrder.partNumber', 'defectLogs.defect', 'inspector:id,full_name'])
+            ->orderByDesc('serial_records.created_at')
+            ->get()
+            ->map(function (SerialRecord $record) use ($puedeVerInspector) {
+                $inspection = [
+                    'orden' => $record->sortOrder?->order_number,
+                    'parte' => $record->sortOrder?->partNumber?->part_number,
+                    'serie' => $record->serial_number,
+                    'resultado' => $record->status === 'PASSED' ? 'OK' : 'NG',
+                    'defecto' => $record->defectLogs->first()?->defect?->description,
+                    'fecha' => $record->created_at?->toDateTimeString(),
+                    'turno' => $record->shift,
+                ];
+
+                if ($puedeVerInspector) {
+                    $inspection['inspector'] = $record->inspector?->full_name;
+                }
+
+                return $inspection;
+            });
 
         $pareto = (clone $query)
             ->join('serial_defect_logs', 'serial_records.id', '=', 'serial_defect_logs.serial_record_id')
@@ -110,6 +133,7 @@ class ControlCalidadReportController extends Controller
                 'retrabajos' => ['valor' => $reworks, 'detalle' => $total ? round($reworks / $total * 100, 1).'% del total' : '0% del total'],
                 'scrap' => ['valor' => $scrap, 'detalle' => $total ? round($scrap / $total * 100, 1).'% del total' : '0% del total'],
             ],
+            'inspecciones' => $inspecciones,
             'pareto' => $pareto->map(fn ($item) => ['defecto' => $item->defecto, 'cantidad' => (int) $item->cantidad]),
             'ordenesActivas' => $ordenesActivas,
             'retrabajos' => $retrabajos,
@@ -118,18 +142,23 @@ class ControlCalidadReportController extends Controller
 
     public function csv(Request $request)
     {
+        $puedeVerInspector = in_array($request->user()->role?->name, ['admin', 'supervisor'], true);
         $records = $this->consulta($request)
-            ->with(['sortOrder.partNumber', 'defectLogs.defect'])
+            ->with(['sortOrder.partNumber', 'defectLogs.defect', 'inspector:id,full_name'])
             ->orderBy('created_at')
             ->get();
 
-        return response()->streamDownload(function () use ($records) {
+        return response()->streamDownload(function () use ($records, $puedeVerInspector) {
             $output = fopen('php://output', 'w');
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['Fecha', 'Orden', 'Parte', 'Serie', 'Resultado', 'Defecto', 'Turno']);
+            $headers = ['Fecha', 'Orden', 'Parte', 'Serie', 'Resultado', 'Defecto', 'Turno'];
+            if ($puedeVerInspector) {
+                $headers[] = 'Inspector';
+            }
+            fputcsv($output, $headers);
 
             foreach ($records as $record) {
-                fputcsv($output, [
+                $row = [
                     $record->created_at?->toDateTimeString(),
                     $record->sortOrder?->order_number,
                     $record->sortOrder?->partNumber?->part_number,
@@ -137,7 +166,11 @@ class ControlCalidadReportController extends Controller
                     $record->status === 'PASSED' ? 'OK' : 'NG',
                     $record->defectLogs->first()?->defect?->description,
                     $record->shift,
-                ]);
+                ];
+                if ($puedeVerInspector) {
+                    $row[] = $record->inspector?->full_name;
+                }
+                fputcsv($output, $row);
             }
 
             fclose($output);

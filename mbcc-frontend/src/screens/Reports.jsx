@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api.js'
+import { api, auth } from '../api.js'
+import { nivelDe } from '../access.js'
 import { IconCalendar, IconChevron, IconSearch, IconGauge, IconTool, IconTrash, IconTable } from '../components/Icons.jsx'
 
 const hoy = new Date()
@@ -45,6 +46,8 @@ export default function Reports() {
   const ticks = [0, 20, 40, 60, 80]
   const ordenesActivas = data?.ordenesActivas || []
   const retrabajos = data?.retrabajos || []
+  const inspecciones = data?.inspecciones || []
+  const verInspector = ['admin', 'supervisor'].includes(nivelDe(auth.user))
 
   return (
     <>
@@ -142,6 +145,44 @@ export default function Reports() {
           )}
         </section>
       </div>
+
+      <section className="card report-panel">
+        <h2>Detalle de inspecciones</h2>
+        {inspecciones.length === 0 ? (
+          <p className="muted">No hay inspecciones registradas en el periodo seleccionado.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Orden</th>
+                  <th>Parte</th>
+                  <th>Serie</th>
+                  <th>Resultado</th>
+                  <th>Defecto</th>
+                  {verInspector && <th>Inspector</th>}
+                  <th>Turno</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inspecciones.map((item, index) => (
+                  <tr key={`${item.serie}-${index}`}>
+                    <td>{item.fecha ? new Date(item.fecha).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
+                    <td>{item.orden || '—'}</td>
+                    <td>{item.parte || '—'}</td>
+                    <td>{item.serie}</td>
+                    <td><span className={`badge ${item.resultado === 'OK' ? 'badge-ok' : 'badge-ng'}`}>{item.resultado}</span></td>
+                    <td>{item.defecto || '—'}</td>
+                    {verInspector && <td>{item.inspector || '—'}</td>}
+                    <td>{item.turno || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </>
   )
 }
