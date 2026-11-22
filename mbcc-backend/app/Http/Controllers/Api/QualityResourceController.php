@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Mensajes;
 use Illuminate\Http\Request;
 
 abstract class QualityResourceController extends Controller
@@ -11,14 +12,25 @@ abstract class QualityResourceController extends Controller
 
     protected array $rules = [];
 
-    public function index()
+    /** Reglas de validación; las subclases las sobrescriben para añadir "unique" (con $id al editar). */
+    protected function rules(?int $id = null): array
     {
-        return $this->modelClass::query()->paginate(request()->integer('per_page', 15));
+        return $this->rules;
+    }
+
+    protected function validated(Request $request, ?int $id = null): array
+    {
+        return $request->validate($this->rules($id), Mensajes::ES);
+    }
+
+    public function index(Request $request)
+    {
+        return $this->modelClass::query()->paginate(min($request->integer('per_page', 15), 200));
     }
 
     public function store(Request $request)
     {
-        $record = $this->modelClass::create($request->validate($this->rules));
+        $record = $this->modelClass::create($this->validated($request));
 
         return response()->json($record, 201);
     }
@@ -31,16 +43,14 @@ abstract class QualityResourceController extends Controller
     public function update(Request $request, int $id)
     {
         $record = $this->modelClass::findOrFail($id);
-        $record->update($request->validate($this->rules));
+        $record->update($this->validated($request, $id));
 
         return $record->fresh();
     }
 
+    /** Los catálogos no se borran (tienen registros relacionados): se desactivan o se editan. */
     public function destroy(int $id)
     {
-        $record = $this->modelClass::findOrFail($id);
-        $record->delete();
-
-        return response()->noContent();
+        return response()->json(['message' => 'Este registro no se puede eliminar.'], 405);
     }
 }

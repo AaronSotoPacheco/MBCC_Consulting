@@ -32,3 +32,7 @@ export const IconTool = makeIcon(<path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.
 export const IconGauge = makeIcon(<><path d="M12 21a9 9 0 119-9" /><path d="M12 12l4-4" /></>)
 export const IconImage = makeIcon(<><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-8 8" /></>)
 export const IconDownload = makeIcon(<><path d="M12 3v12M7 10l5 5 5-5M4 21h16" /></>)
+export const IconPlus = makeIcon(<path d="M12 5v14M5 12h14" strokeWidth={2.5} />)
+export const IconEdit = makeIcon(<><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" /></>)
+export const IconPause = makeIcon(<><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></>)
+export const IconRotate = makeIcon(<><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.8L3 8" /><path d="M3 3v5h5" /></>)

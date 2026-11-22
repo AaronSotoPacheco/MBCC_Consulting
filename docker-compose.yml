@@ -1,0 +1,102 @@
+# MBCC Control de Calidad — producción con MySQL, HTTPS automático y respaldos diarios.
+# Guía paso a paso: DESPLIEGUE.md   ·   Variables: copia .env.docker.example a .env
+name: mbcc
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Define DB_ROOT_PASSWORD en .env}
+      MYSQL_DATABASE: ${DB_DATABASE:-mbcc}
+      MYSQL_USER: ${DB_USERNAME:-mbcc}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+      TZ: ${APP_TIMEZONE:-America/Mexico_City}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    # La base de datos NO se publica al exterior: solo la ve la red interna de Docker.
+
+  app:
+    build: ./mbcc-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_NAME: "MBCC Control de Calidad"
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?Define APP_KEY en .env (ver DESPLIEGUE.md)}
+      APP_URL: https://${SITIO:-localhost}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Mexico_City}
+      LOG_CHANNEL: daily
+      LOG_LEVEL: ${LOG_LEVEL:-warning}
+      LOG_DAILY_DAYS: ${LOG_DAILY_DAYS:-30}
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: ${DB_DATABASE:-mbcc}
+      DB_USERNAME: ${DB_USERNAME:-mbcc}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5-5}
+      NG_UMBRAL: ${NG_UMBRAL:-5}
+      NG_VENTANA: ${NG_VENTANA:-20}
+      NG_MUESTRA_MINIMA: ${NG_MUESTRA_MINIMA:-10}
+    volumes:
+      - storage_app:/var/www/html/storage/app     # PDF de instrucciones, fotos de referencia y evidencias NG
+      - storage_logs:/var/www/html/storage/logs
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITIO: ${SITIO:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # certificados HTTPS: no borrar
+      - caddy_config:/config
+
+  respaldo:
+    build: ./deploy/respaldo
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: ${DB_DATABASE:-mbcc}
+      DB_USERNAME: ${DB_USERNAME:-mbcc}
+      DB_PASSWORD: ${DB_PASSWORD}
+      HORA_RESPALDO: ${HORA_RESPALDO:-02:00}
+      RETENCION_DIAS: ${RETENCION_DIAS:-30}
+      TZ: ${APP_TIMEZONE:-America/Mexico_City}
+    volumes:
+      - storage_app:/datos/storage-app
+      - ./respaldos:/respaldos
+
+volumes:
+  db_data:
+  storage_app:
+  storage_logs:
+  caddy_data:
+  caddy_config:

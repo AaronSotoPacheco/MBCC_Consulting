@@ -14,6 +14,13 @@ return [
     |
     */
 
+    // Comparación de imágenes con IA (Claude visión). La clave solo vive en el .env del backend.
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ANTHROPIC_MODEL', 'claude-sonnet-5-5'),
+        'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

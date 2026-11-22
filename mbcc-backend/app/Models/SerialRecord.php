@@ -8,7 +8,7 @@ class SerialRecord extends Model
 {
     const UPDATED_AT = null;
 
-    protected $fillable = ['sort_order_id', 'serial_number', 'status', 'inspected_by', 'station_identifier', 'shift'];
+    protected $fillable = ['sort_order_id', 'serial_number', 'client_uuid', 'status', 'inspected_by', 'station_identifier', 'shift', 'ai_verdict', 'ai_defect', 'ai_confidence'];
 
     public function sortOrder()
     {

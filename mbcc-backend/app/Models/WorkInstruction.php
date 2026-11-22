@@ -8,7 +8,7 @@ class WorkInstruction extends Model
 {
     const UPDATED_AT = null;
 
-    protected $fillable = ['part_number_id', 'code', 'revision', 'title', 'file_path', 'status', 'approved_by', 'approved_at'];
+    protected $fillable = ['part_number_id', 'code', 'revision', 'title', 'file_path', 'status', 'approved_by', 'approved_at', 'key_points', 'specifications'];
 
     protected $casts = ['approved_at' => 'datetime'];
 
@@ -25,5 +25,10 @@ class WorkInstruction extends Model
     public function sortOrders()
     {
         return $this->hasMany(SortOrder::class);
+    }
+
+    public function referenceImages()
+    {
+        return $this->hasMany(WiReferenceImage::class);
     }
 }

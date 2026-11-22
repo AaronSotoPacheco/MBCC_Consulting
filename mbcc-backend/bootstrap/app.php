@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [\Illuminate\Http\Middleware\HandleCors::class]);
+        // Global (no del grupo api) para que también salgan en respuestas 401/403/422
+        $middleware->append(\App\Http\Middleware\CabecerasSeguridad::class);
+        // Detrás de un proxy con HTTPS (nginx, Caddy…): TRUSTED_PROXIES=* o la IP del proxy
+        $middleware->trustProxies(at: env('TRUSTED_PROXIES') ?: null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

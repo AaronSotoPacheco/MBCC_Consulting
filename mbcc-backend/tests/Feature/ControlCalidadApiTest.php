@@ -133,25 +133,18 @@ class ControlCalidadApiTest extends TestCase
             ->assertJsonPath('inspecciones.0.inspector', 'Inspectora de Calidad');
     }
 
-    public function test_inspector_does_not_receive_inspector_names_in_report(): void
+    public function test_inspector_cannot_open_reports_or_csv(): void
     {
-        $user = $this->createUser();
-        $order = $this->createOrder();
-        $order->serialRecords()->create([
-            'serial_number' => 'SN-9001-001',
-            'status' => 'PASSED',
-            'inspected_by' => $user->id,
-        ]);
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($this->createUser());
 
-        $this->getJson('/api/reportes/resumen?desde='.today()->toDateString().'&hasta='.today()->toDateString())
-            ->assertOk()
-            ->assertJsonMissingPath('inspecciones.0.inspector');
+        $rango = 'desde='.today()->toDateString().'&hasta='.today()->toDateString();
+        $this->getJson("/api/reportes/resumen?$rango")->assertForbidden();
+        $this->get("/api/reportes/datos.csv?$rango")->assertForbidden();
     }
 
     public function test_report_summary_uses_records_and_defect_logs(): void
     {
-        $user = $this->createUser();
+        $user = $this->createUser('supervisor');
         $order = $this->createOrder();
         $defect = DefectCatalog::create([
             'code' => 'DEF-MISSING-SCREW',
@@ -172,7 +165,7 @@ class ControlCalidadApiTest extends TestCase
 
     public function test_report_summary_includes_active_orders_and_rework_records(): void
     {
-        $user = $this->createUser();
+        $user = $this->createUser('supervisor');
         $order = $this->createOrder();
         Sanctum::actingAs($user);
 
@@ -199,7 +192,7 @@ class ControlCalidadApiTest extends TestCase
 
     public function test_csv_report_is_an_authenticated_download(): void
     {
-        $user = $this->createUser();
+        $user = $this->createUser('supervisor');
         Sanctum::actingAs($user);
 
         $this->get('/api/reportes/datos.csv?desde='.today()->toDateString().'&hasta='.today()->toDateString())
@@ -247,9 +240,9 @@ class ControlCalidadApiTest extends TestCase
         $this->withToken($token)->getJson('/api/ordenes')->assertUnauthorized();
     }
 
-    private function createUser(): User
+    private function createUser(string $nivel = 'inspector'): User
     {
-        $role = Role::create(['name' => 'inspector', 'description' => 'Inspector']);
+        $role = Role::firstOrCreate(['name' => $nivel], ['description' => ucfirst($nivel)]);
 
         return User::create([
             'role_id' => $role->id,

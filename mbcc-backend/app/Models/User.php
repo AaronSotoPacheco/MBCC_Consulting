@@ -36,6 +36,7 @@ class User extends Authenticatable
      */
     protected $hidden = [
         'password_hash',
+        'qr_token_hash',
     ];
 
     /**
@@ -48,6 +49,7 @@ class User extends Authenticatable
         return [
             'password_hash' => 'hashed',
             'is_active' => 'boolean',
+            'qr_generated_at' => 'datetime',
         ];
     }
 

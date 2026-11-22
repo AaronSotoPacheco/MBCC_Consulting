@@ -6,6 +6,10 @@ import Login from './screens/Login.jsx'
 import Orders from './screens/Orders.jsx'
 import Station from './screens/Station.jsx'
 import Reports from './screens/Reports.jsx'
+import Configuration from './screens/Configuration.jsx'
+import Shift from './screens/Shift.jsx'
+import Asistencia from './screens/Asistencia.jsx'
+import Trazabilidad from './screens/Trazabilidad.jsx'
 
 function useHashRoute() {
   const get = () => location.hash.replace(/^#/, '') || '/'
@@ -74,18 +78,19 @@ export default function QualityApp() {
 
   if (route.startsWith('/reportes')) return <Shell {...shellProps}><Reports /></Shell>
 
-  if (route.startsWith('/turno') || route.startsWith('/config')) {
-    return (
-      <Shell {...shellProps}>
-        <h1 className="page-title">{route.startsWith('/turno') ? 'Mi Turno' : 'Configuración'}</h1>
-        <p className="muted">Pantalla pendiente de diseñar.</p>
-      </Shell>
-    )
+  if (route.startsWith('/config')) {
+    return <Shell {...shellProps}><Configuration route={route} navigate={navigate} user={user} /></Shell>
   }
+
+  if (route.startsWith('/trazabilidad')) return <Shell {...shellProps}><Trazabilidad user={user} /></Shell>
+
+  if (route.startsWith('/asistencia')) return <Shell {...shellProps}><Asistencia user={user} /></Shell>
+
+  if (route.startsWith('/turno')) return <Shell {...shellProps}><Shift user={user} /></Shell>
 
   return (
     <Shell {...shellProps}>
-      <Orders onOpen={(order) => {
+      <Orders user={user} onOpen={(order) => {
         sessionStorage.setItem('mbcc_orden', JSON.stringify(order))
         setActual(order)
         navigate(`/estacion/${order.id}`)

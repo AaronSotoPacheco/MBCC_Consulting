@@ -1,0 +1,39 @@
+# SITIO viene del .env. Con un dominio público (calidad.tuempresa.com) Caddy obtiene y renueva
+# el certificado HTTPS solo. Si SITIO es "localhost", una IP o un nombre interno (calidad.planta),
+# descomenta "tls internal" para usar un certificado propio de Caddy (ver DESPLIEGUE.md: confiar en él en los teléfonos).
+{$SITIO:localhost} {
+	# tls internal
+
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		Permissions-Policy "camera=(self), microphone=(), geolocation=()"
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# API Laravel (PHP-FPM en el contenedor "app")
+	@laravel path /api/* /up
+	handle @laravel {
+		rewrite * /index.php
+		reverse_proxy app:9000 {
+			transport fastcgi {
+				root /var/www/html/public
+			}
+		}
+	}
+
+	# Frontend (React). Los archivos con hash se guardan en caché; index.html nunca.
+	handle {
+		root * /srv
+		@estaticos path /assets/*
+		header @estaticos Cache-Control "public, max-age=31536000, immutable"
+		@index not path /assets/*
+		header @index Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

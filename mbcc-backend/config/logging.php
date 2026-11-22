@@ -73,6 +73,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Errores de JavaScript reportados por el navegador (ver MonitoreoController::errorCliente)
+        'frontend' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/frontend.log'),
+            'level' => 'error',
+            'days' => env('LOG_DAILY_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

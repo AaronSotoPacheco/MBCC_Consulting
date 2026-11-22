@@ -43,7 +43,10 @@ export default function Reports() {
 
   const k = data?.kpis
   const max = data ? Math.max(...(data.pareto || []).map((item) => item.cantidad), 1) : 1
-  const ticks = [0, 20, 40, 60, 80]
+  // Escala "bonita" según el valor máximo real (antes era fija hasta 80 y las barras chicas no se veían)
+  const paso = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000].find((p) => p * 4 >= max) || Math.ceil(max / 4)
+  const tope = paso * 4
+  const ticks = [0, 1, 2, 3, 4].map((i) => i * paso)
   const ordenesActivas = data?.ordenesActivas || []
   const retrabajos = data?.retrabajos || []
   const inspecciones = data?.inspecciones || []
@@ -68,10 +71,16 @@ export default function Reports() {
       </div>}
 
       <div className="reports-grid">
-        <section className="card pareto"><h2>Pareto de Defectos</h2>{data && <div className="chart" role="img" aria-label="Gráfica de Pareto de defectos">
-          <div className="y-axis">{[...ticks].reverse().map((tick) => <span key={tick}>{tick}</span>)}</div>
-          <div className="plot">{ticks.map((tick) => <i key={tick} className="gridline" style={{ bottom: `${(tick / 80) * 100}%` }} />)}</div>
-          <div className="plot"><div className="bars">{(data.pareto || []).map((item) => <div className="bar-col" key={item.defecto}><span className="bar-val">{item.cantidad}</span><div className="bar" style={{ height: `${(item.cantidad / Math.max(80, max)) * 100}%` }} /><span className="bar-label">{item.defecto}</span></div>)}</div></div>
+        <section className="card pareto"><h2>Pareto de Defectos</h2>
+          {data && (data.pareto || []).length === 0 && <p className="muted small">No hay defectos registrados en este periodo.</p>}
+          {data && (data.pareto || []).length > 0 && <div className="chart" role="img" aria-label={`Gráfica de Pareto de defectos: ${(data.pareto || []).map((item) => `${item.defecto} ${item.cantidad}`).join(', ')}`}>
+          <div className="y-axis"><div className="y-ticks">{ticks.map((tick) => <span key={tick} style={{ bottom: `${(tick / tope) * 100}%` }}>{tick}</span>)}</div></div>
+          <div className="plot-scroll"><div className="plot" style={{ minWidth: `${(data.pareto || []).length * 76}px` }}>
+            <div className="plot-area">
+              {ticks.map((tick) => <i key={tick} className="gridline" style={{ bottom: `${(tick / tope) * 100}%` }} />)}
+              <div className="bars">{(data.pareto || []).map((item) => <div className="bar-col" key={item.defecto} title={`${item.defecto}: ${item.cantidad}`}><span className="bar-val">{item.cantidad}</span><div className="bar" style={{ height: `${(item.cantidad / tope) * 100}%`, minHeight: item.cantidad > 0 ? '3px' : 0 }} /><span className="bar-label">{item.defecto}</span></div>)}</div>
+            </div>
+          </div></div>
         </div>}</section>
         <section className="card export"><h2>Exportar Reporte</h2><p className="muted small">Descarga los resultados del periodo seleccionado.</p><button className="btn btn-outline btn-block" onClick={exportar}><IconTable width={16} height={16} /> Exportar Datos a CSV</button></section>
       </div>

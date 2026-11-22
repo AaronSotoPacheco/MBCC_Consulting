@@ -1,0 +1,10 @@
+# Compila el frontend y lo sirve con Caddy (que además da HTTPS y reenvía /api a Laravel).
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY mbcc-frontend/package*.json ./
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+COPY mbcc-frontend/ ./
+RUN npm run build
+
+FROM caddy:2-alpine
+COPY --from=build /app/dist /srv

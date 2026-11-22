@@ -10,6 +10,31 @@ Vite redirige `/api` a `http://127.0.0.1:8000`; `VITE_API_URL` permite cambiar e
 
 En una base de desarrollo recién creada, el seeder define `EMP-0001` / `password`. No uses esas credenciales en producción. Las órdenes y los defectos se leen de los catálogos existentes en Laravel.
 
+## Niveles de uso
+
+| Sección | Inspector | Supervisor | Admin |
+|---|:-:|:-:|:-:|
+| Órdenes Activas, Estación de trabajo, Mi Turno | ✔ | ✔ | ✔ |
+| Crear, editar, pausar y cerrar órdenes | — | ✔ | ✔ |
+| Reabrir una orden cerrada | — | — | ✔ |
+| Reportes | — | ✔ | ✔ |
+| Configuración → Instrucciones de trabajo | — | ✔ | ✔ |
+| Configuración → Usuarios, Clientes y partes, Defectos | — | — | ✔ |
+
+El frontend solo decide qué se muestra (`src/access.js`); la seguridad real está en Laravel (`EnsureRole` en `routes/api.php`).
+
+## Órdenes y Mi Turno
+
+- En Órdenes Activas, supervisor y administrador ven "Nueva orden" y, en cada tarjeta, Pausar/Reanudar, Cerrar (con confirmación) y Editar (meta y horario). Los filtros "Cerradas" e "Incluir cerradas" solo aparecen para ellos.
+- "Iniciar inspección" queda deshabilitado en órdenes pausadas o cerradas (el backend también las rechaza).
+- Mi Turno muestra lo inspeccionado en una fecha. Supervisor y administrador pueden cambiar a la vista "Equipo".
+
+## Configuración
+
+Las instrucciones de trabajo se suben como PDF (máx. 20 MB) y quedan en borrador; al aprobarlas pasan a vigentes y la vigente anterior de esa parte queda obsoleta. La aprobación (quién y cuándo) la registra Laravel. El PDF se guarda en `storage/app/private/wi` y se abre con el botón "Ver PDF". Los registros de ejemplo del seeder no traen PDF: súbelo de nuevo o colócalo en esa ruta.
+
+Usuarios, clientes, partes y defectos son exclusivos del administrador.
+
 ## Validación
 
 ```bash

@@ -23,6 +23,57 @@ Las pruebas de integración se ejecutan con:
 php artisan test
 ```
 
+### Niveles de uso y endpoints
+
+Todo requiere `Authorization: Bearer <token>` salvo `POST /api/login`. Los niveles salen de `roles.name` (`admin`, `supervisor`, `inspector`) y se validan con el middleware `EnsureRole` en `routes/api.php`.
+
+| Endpoint | Niveles |
+|---|---|
+| `GET /api/ordenes`, `GET/POST /api/ordenes/{id}/inspecciones`, `GET /api/defectos`, `GET /api/turno`, `/api/trazabilidad…`, `POST /api/me/password` | todos (`?cerradas=1` y `alcance=equipo` solo supervisor/admin) |
+| `GET /api/reportes/resumen`, `GET /api/reportes/datos.csv`, `GET /api/alertas` | supervisor, admin |
+| `GET /api/auditoria` (bitácora) | admin |
+| `GET /api/salud`, `POST /api/errores-cliente` | públicos (monitoreo; sin datos sensibles) |
+| `GET /api/ordenes/opciones`, `POST /api/ordenes`, `PATCH /api/ordenes/{id}`, `PATCH /api/ordenes/{id}/estado` | supervisor, admin (reabrir una cerrada: solo admin) |
+| `GET/POST/PATCH/DELETE /api/work-instructions`, `POST …/{id}/aprobar`, `POST …/{id}/obsoleta`, `GET …/{id}/archivo`, `GET /api/part-numbers` | supervisor, admin |
+| `/api/users`, `/api/roles`, `/api/clients`, `/api/part-numbers` (alta y edición), `/api/defect-catalog` | admin |
+
+Antes de esta versión `users`, `clients`, `sort-orders`, etc. estaban expuestos sin autenticación; ahora exigen token y nivel. Las tablas internas (`sort-orders`, `serial-records`, `serial-defect-logs`, `rework-logs`) ya no se publican como recursos.
+
+Recomendado en tu `.env` (México): `APP_TIMEZONE=America/Mexico_City`, para que "hoy" en Mi Turno y Reportes coincida con tu horario. Si cambias el nivel, desactivas a un usuario o cambias su contraseña, sus sesiones abiertas se cierran.
+
+### Comparación de imágenes con IA (Estación)
+
+El inspector toma o elige una foto de la pieza y el backend la compara con las fotos de referencia OK / NG de la
+instrucción de trabajo de la orden usando Claude (visión). **Solo sugiere**: la Estación preselecciona OK/NG y el
+defecto, y el inspector confirma con PASSED / FAILED. La foto no se guarda.
+
+1. En `.env`: `ANTHROPIC_API_KEY=` (tu clave) y opcionalmente `ANTHROPIC_MODEL=` (por defecto `claude-sonnet-5-5`).
+   La clave nunca llega al navegador. Sin clave, la función responde "no configurada".
+2. `php artisan migrate` (tabla `wi_reference_images`).
+3. Un supervisor/admin sube las fotos en Configuración → Instrucciones de trabajo → **Fotos IA** (hasta 4 OK y 4 NG por
+   instrucción; las NG llevan el nombre del defecto). Sin al menos una foto OK no se puede comparar.
+
+| Método | Ruta | Quién |
+| --- | --- | --- |
+| GET | `/api/ordenes/{orden}/referencias` · `/api/referencias/{id}/imagen` | cualquier usuario con sesión |
+| POST | `/api/ordenes/{orden}/comparar` (campo `imagen`, JPG/PNG/WebP ≤ 3 MB, 20/min) | cualquier usuario con sesión |
+| GET/POST | `/api/work-instructions/{id}/referencias` | supervisor, admin |
+| DELETE | `/api/referencias/{id}` | supervisor, admin |
+
+Cada comparación es una llamada de pago a la API de Anthropic (el frontend reduce la foto a 1600 px antes de enviarla).
+
+### Inicio de sesión con QR único (gafetes)
+
+Cada empleado puede entrar con un QR personal impreso en su gafete (además de número de empleado y contraseña).
+
+- Un administrador lo genera en Configuración → **Credenciales QR** (uno por uno o varios a la vez) e imprime los gafetes.
+- El QR contiene un código aleatorio (`MBCC-` + 40 caracteres). En la base solo se guarda su hash SHA-256
+  (`users.qr_token_hash`); el código en claro solo se ve al generarlo. Si se pierde un gafete: **Regenerar** o **Revocar**
+  (invalida el código y cierra las sesiones abiertas de ese empleado).
+- `POST /api/login/qr` (`qr`, `turno` opcional, 10 intentos/min) · admin: `POST /api/users/{id}/qr`, `POST /api/users/qr-masivo`,
+  `DELETE /api/users/{id}/qr`.
+- Requiere `php artisan migrate`. Los usuarios inactivos no pueden entrar con QR.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
@@ -73,3 +124,6 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+### Producción
+Ver `DESPLIEGUE.md` (raíz del proyecto): Docker con MySQL, HTTPS, respaldos diarios y monitoreo. El primer administrador se crea con `php artisan mbcc:crear-admin <número> "<nombre>"`. Variables opcionales: `NG_UMBRAL`, `NG_VENTANA`, `NG_MUESTRA_MINIMA` (alertas de rechazos) y `OFFLINE_MAX_HORAS` (antigüedad máxima de una captura hecha sin conexión).
